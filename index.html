@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+  <title>LaTeX 转 PNG · 质量选择 · 智能下载</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --text: #2c3e50;
+      --text-secondary: #636e72;
+      --input-bg: #fff;
+      --input-border: #dfe6e9;
+      --input-focus: #6c5ce7;
+      --btn-render: #6c5ce7;
+      --btn-export: #00b894;
+      --shadow: 0 4px 15px rgba(0,0,0,0.06);
+      --formula-color: #1a1a1a;
+      --progress-bg: rgba(0,0,0,0.7);
+      --status-ready: #00b894;
+      --status-pending: #f39c12;
+    }
+    body.dark-mode {
+      --bg: #1a1a2e;
+      --card-bg: #16213e;
+      --text: #e0e0e0;
+      --text-secondary: #a0a0b0;
+      --input-bg: #0f3460;
+      --input-border: #1a1a3e;
+      --input-focus: #7c5ce7;
+      --btn-render: #7c5ce7;
+      --btn-export: #00cec9;
+      --shadow: 0 4px 15px rgba(0,0,0,0.3);
+      --formula-color: #f0f0f0;
+      --status-ready: #00cec9;
+      --status-pending: #f1c40f;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container { width: 100%; max-width: 600px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0 20px;
+    }
+    h1 { font-size: 1.8rem; color: var(--text); transition: color 0.3s; }
+    .toggle-btn {
+      background: var(--card-bg);
+      border: 2px solid var(--input-border);
+      border-radius: 50px;
+      width: 56px; height: 30px;
+      cursor: pointer;
+      display: flex; align-items: center; padding: 2px;
+      transition: all 0.3s;
+      box-shadow: var(--shadow);
+    }
+    .toggle-knob {
+      width: 24px; height: 24px;
+      background: var(--btn-render);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: white;
+      transition: transform 0.3s, background 0.3s;
+    }
+    body.dark-mode .toggle-knob { transform: translateX(26px); }
+    textarea {
+      width: 100%; height: 120px;
+      padding: 12px; font-size: 16px;
+      border: 2px solid var(--input-border);
+      border-radius: 12px;
+      background: var(--input-bg);
+      color: var(--text);
+      outline: none; resize: vertical;
+      font-family: 'Courier New', monospace;
+      transition: all 0.3s;
+    }
+    textarea:focus { border-color: var(--input-focus); }
+
+    .quality-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0 6px;
+      padding: 0 4px;
+    }
+    .quality-control label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .quality-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 6px;
+      background: var(--input-border);
+      border-radius: 3px;
+      outline: none;
+    }
+    .quality-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--btn-render);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: background 0.2s;
+    }
+    .quality-slider::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--btn-render);
+      cursor: pointer;
+      border: none;
+    }
+    #qualityLabel {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--btn-render);
+      min-width: 32px;
+      text-align: center;
+    }
+
+    .example {
+      margin: 6px 0 15px; font-size: 14px;
+      color: var(--text-secondary); transition: color 0.3s;
+    }
+    .example code {
+      background: var(--input-border);
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 13px; color: var(--text);
+    }
+    .buttons { display: flex; gap: 12px; margin: 15px 0 10px; }
+    button {
+      flex: 1; padding: 14px 0;
+      font-size: 16px; font-weight: 600;
+      border: none; border-radius: 12px;
+      background: var(--btn-render);
+      color: white; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:active { transform: scale(0.96); }
+    button.export { background: var(--btn-export); }
+    .export-status {
+      text-align: center; font-size: 12px;
+      margin-bottom: 10px; color: var(--status-pending);
+      min-height: 18px;
+    }
+    .export-status.ready { color: var(--status-ready); }
+    .preview-box {
+      background: var(--card-bg);
+      border-radius: 16px; padding: 25px 20px;
+      margin: 20px 0; min-height: 100px;
+      box-shadow: var(--shadow);
+      overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      text-align: center; white-space: nowrap;
+      transition: background 0.3s, box-shadow 0.3s;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .preview-box::-webkit-scrollbar { display: none; }
+    .formula-wrapper { display: inline-block; text-align: left; white-space: nowrap; }
+    .formula-wrapper .katex { font-size: 1.5rem; color: var(--formula-color); transition: color 0.3s; }
+    .error { color: #d63031; font-size: 15px; }
+    #export-container {
+      position: absolute; left: -9999px; top: 0;
+      background: transparent !important;
+      display: inline-block; width: fit-content;
+      white-space: nowrap; padding: 15px;
+    }
+    #export-container, #export-container * { background: transparent !important; }
+    #export-container .katex { color: #000000 !important; }
+    .progress-modal {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: var(--progress-bg);
+      z-index: 9999;
+      justify-content: center; align-items: center;
+      flex-direction: column;
+    }
+    .progress-modal.active { display: flex; }
+    .progress-box {
+      background: var(--card-bg);
+      padding: 30px 25px; border-radius: 20px;
+      width: 80%; max-width: 320px; text-align: center;
+    }
+    .progress-text { margin-bottom: 15px; color: var(--text); font-size: 16px; font-weight: 500; }
+    .progress-bar {
+      width: 100%; height: 12px;
+      background: var(--input-border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .progress-fill {
+      width: 0%; height: 100%;
+      background: var(--btn-export);
+      border-radius: 10px;
+      transition: width 0.1s linear;
+    }
+    .footer-note {
+      text-align: center; font-size: 13px;
+      color: var(--text-secondary); margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📐 LaTeX → PNG</h1>
+      <div class="toggle-btn" id="themeToggle">
+        <div class="toggle-knob">☀️</div>
+      </div>
+    </div>
+
+    <textarea id="latexInput" placeholder="输入 LaTeX 公式..."></textarea>
+
+    <div class="quality-control">
+      <label>输出质量</label>
+      <input type="range" id="qualitySlider" class="quality-slider" min="0" max="2" step="1" value="2">
+      <span id="qualityLabel">高清</span>
+    </div>
+
+    <div class="example">
+      示例：<code>\frac{-b \pm \sqrt{b^2-4ac}}{2a}</code>  <code>\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}</code>
+    </div>
+    <div class="buttons">
+      <button id="clearBtn">🗑 清空</button>
+      <button id="exportBtn" class="export">⬇️ 导出透明 PNG</button>
+    </div>
+    <div id="exportStatus" class="export-status">输入公式后自动准备图片</div>
+
+    <div id="preview" class="preview-box">
+      <div class="formula-wrapper"></div>
+    </div>
+    <p class="footer-note">停止输入后自动渲染 · 清空按钮重置内容 · 导出图片背景透明</p>
+  </div>
+
+  <!-- 进度条模态框 -->
+  <div id="progressModal" class="progress-modal">
+    <div class="progress-box">
+      <div class="progress-text">正在生成高清图片...</div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 隐藏导出容器 -->
+  <div id="export-container"></div>
+
+  <script>
+    // ========== 深浅色模式 ==========
+    const body = document.body;
+    const themeToggle = document.getElementById('themeToggle');
+    const knob = themeToggle.querySelector('.toggle-knob');
+    const savedTheme = localStorage.getItem('latex-png-theme');
+    if (savedTheme === 'dark') {
+      body.classList.add('dark-mode');
+      knob.textContent = '🌙';
+    } else {
+      body.classList.remove('dark-mode');
+      knob.textContent = '☀️';
+    }
+    themeToggle.addEventListener('click', () => {
+      body.classList.toggle('dark-mode');
+      const isDark = body.classList.contains('dark-mode');
+      knob.textContent = isDark ? '🌙' : '☀️';
+      localStorage.setItem('latex-png-theme', isDark ? 'dark' : 'light');
+    });
+
+    // ========== 质量滑动条 ==========
+    const qualitySlider = document.getElementById('qualitySlider');
+    const qualityLabel = document.getElementById('qualityLabel');
+    const qualityNames = ['较低', '普通', '高清'];
+    const qualitySettings = {
+      0: { fontSize: 32, scale: 2 },
+      1: { fontSize: 48, scale: 3 },
+      2: { fontSize: 64, scale: 4 }
+    };
+
+    const savedQuality = localStorage.getItem('latex-png-quality');
+    let currentQuality = savedQuality !== null ? parseInt(savedQuality, 10) : 2;
+    if (currentQuality < 0 || currentQuality > 2 || isNaN(currentQuality)) {
+      currentQuality = 2;
+    }
+    qualitySlider.value = currentQuality;
+    qualityLabel.textContent = qualityNames[currentQuality];
+
+    qualitySlider.addEventListener('input', () => {
+      const val = parseInt(qualitySlider.value, 10);
+      qualityLabel.textContent = qualityNames[val];
+      currentQuality = val;
+      localStorage.setItem('latex-png-quality', val);
+      clearCachedImage();
+      if (latestLatex) {
+        scheduleGenerate(latestLatex);
+      }
+    });
+
+    // ========== 元素与全局状态 ==========
+    const latexInput = document.getElementById('latexInput');
+    const previewWrapper = document.querySelector('#preview .formula-wrapper');
+    const exportContainer = document.getElementById('export-container');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const exportStatus = document.getElementById('exportStatus');
+    const progressModal = document.getElementById('progressModal');
+    const progressFill = document.getElementById('progressFill');
+
+    let latestLatex = '';
+    let generateVersion = 0;
+    let currentGeneratePromise = null;
+    let cachedBlobUrl = null;
+    let pendingExport = false;
+
+    function renderLatex(latex, target, fontSize = '1.5rem', throwError = false) {
+      target.style.fontSize = fontSize;
+      try {
+        katex.render(latex, target, {
+          throwOnError: false,
+          errorColor: '#d63031',
+          displayMode: true,
+          output: 'html',
+        });
+        return true;
+      } catch (e) {
+        target.innerHTML = `<span class="error">❌ 渲染失败：${e.message}</span>`;
+        return false;
+      }
+    }
+
+    function updatePreview() {
+      const latex = latexInput.value.trim();
+      if (!latex) {
+        previewWrapper.innerHTML = '<span style="color:#aaa;">输入公式后自动渲染</span>';
+        updateExportStatus('empty');
+        latestLatex = '';
+        clearCachedImage();
+        return;
+      }
+      latestLatex = latex;
+      renderLatex(latex, previewWrapper, '1.5rem');
+      scheduleGenerate(latex);
+    }
+
+    function updateExportStatus(state) {
+      switch(state) {
+        case 'empty':
+          exportStatus.textContent = '输入公式后自动准备图片';
+          exportStatus.className = 'export-status';
+          break;
+        case 'generating':
+          exportStatus.textContent = '⏳ 图片生成中...';
+          exportStatus.className = 'export-status';
+          break;
+        case 'ready':
+          exportStatus.textContent = '✅ 图片已就绪，点击按钮直接下载';
+          exportStatus.className = 'export-status ready';
+          break;
+        case 'error':
+          exportStatus.textContent = '❌ 公式渲染失败，无法生成图片';
+          exportStatus.className = 'export-status';
+          break;
+        case 'clicked':
+          exportStatus.textContent = '⬇️ 正在下载...';
+          exportStatus.className = 'export-status ready';
+          break;
+      }
+    }
+
+    function clearCachedImage() {
+      if (cachedBlobUrl) {
+        URL.revokeObjectURL(cachedBlobUrl);
+        cachedBlobUrl = null;
+      }
+    }
+
+    function scheduleGenerate(latex) {
+      const version = ++generateVersion;
+      clearCachedImage();
+      updateExportStatus('generating');
+
+      const settings = qualitySettings[currentQuality];
+      const promise = generateImage(latex, version, settings);
+      currentGeneratePromise = promise;
+      
+      promise.then((blobUrl) => {
+        if (version === generateVersion) {
+          cachedBlobUrl = blobUrl;
+          updateExportStatus('ready');
+        } else {
+          URL.revokeObjectURL(blobUrl);
+        }
+      }).catch((err) => {
+        console.error('后台生成失败:', err);
+        if (version === generateVersion) {
+          updateExportStatus('error');
+        }
+      }).finally(() => {
+        if (currentGeneratePromise === promise) {
+          currentGeneratePromise = null;
+        }
+      });
+    }
+
+    function generateImage(latex, version, settings) {
+      return new Promise((resolve, reject) => {
+        const { fontSize, scale } = settings;
+        const success = renderLatex(latex, exportContainer, fontSize + 'px', true);
+        if (!success) {
+          reject(new Error('公式语法错误'));
+          return;
+        }
+        html2canvas(exportContainer, {
+          scale: scale,
+          backgroundColor: null,
+          allowTaint: false,
+          useCORS: true,
+          logging: false,
+        }).then(canvas => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Blob 生成失败'));
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            resolve(url);
+          }, 'image/png');
+        }).catch(reject);
+      });
+    }
+
+    function triggerDownload(url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'latex-transparent.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // ========== 清空按钮 ==========
+    clearBtn.addEventListener('click', () => {
+      latexInput.value = '';
+      // 聚焦到输入框，方便继续输入
+      latexInput.focus();
+      // 触发预览更新（变为空状态）
+      updatePreview();
+    });
+
+    // ========== 导出按钮 ==========
+    exportBtn.addEventListener('click', async () => {
+      const latex = latexInput.value.trim();
+      if (!latex) {
+        alert('请先输入 LaTeX 公式');
+        return;
+      }
+      if (pendingExport) return;
+      pendingExport = true;
+
+      try {
+        if (cachedBlobUrl) {
+          updateExportStatus('clicked');
+          triggerDownload(cachedBlobUrl);
+          setTimeout(() => {
+            if (cachedBlobUrl) updateExportStatus('ready');
+          }, 1000);
+          return;
+        }
+
+        progressModal.classList.add('active');
+        progressFill.style.width = '0%';
+        updateExportStatus('generating');
+
+        if (!currentGeneratePromise) {
+          scheduleGenerate(latex);
+        }
+
+        let progressInterval = setInterval(() => {
+          let cur = parseFloat(progressFill.style.width) || 0;
+          if (cur < 90) {
+            progressFill.style.width = Math.min(90, cur + Math.random() * 10) + '%';
+          }
+        }, 100);
+
+        try {
+          await currentGeneratePromise;
+        } catch (err) {
+          alert('图片生成失败：' + err.message);
+          progressModal.classList.remove('active');
+          clearInterval(progressInterval);
+          return;
+        }
+
+        clearInterval(progressInterval);
+        progressFill.style.width = '100%';
+        setTimeout(() => {
+          progressModal.classList.remove('active');
+          if (cachedBlobUrl) {
+            updateExportStatus('clicked');
+            triggerDownload(cachedBlobUrl);
+            setTimeout(() => {
+              if (cachedBlobUrl) updateExportStatus('ready');
+            }, 1000);
+          } else {
+            alert('生成图片异常，请重试');
+            updateExportStatus('error');
+          }
+        }, 300);
+      } finally {
+        pendingExport = false;
+      }
+    });
+
+    // ========== 自动渲染（防抖） ==========
+    let debounceTimer;
+    latexInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 300);
+    });
+
+    // 初始化预览状态（输入框为空）
+    updatePreview();
+  </script>
+</body>
+</html>
