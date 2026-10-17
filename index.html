@@ -51,7 +51,13 @@
       min-height: 100vh;
       transition: background 0.3s, color 0.3s;
     }
-    .container { width: 100%; max-width: 600px; }
+    /* 容器：移动端默认 max-width 600px，桌面端宽度全宽，但内容自适应 */
+    .container {
+      width: 100%;
+      max-width: 100%;        /* 默认全宽，适配大屏 */
+      transition: max-width 0.2s;
+    }
+    /* 为了在超大屏幕上阅读舒适，但题目要求扩宽到整个界面，我们让内容可以全宽但内部元素合理分配 */
     .header {
       display: flex;
       justify-content: space-between;
@@ -68,6 +74,7 @@
       display: flex; align-items: center; padding: 2px;
       transition: all 0.3s;
       box-shadow: var(--shadow);
+      flex-shrink: 0;
     }
     .toggle-knob {
       width: 24px; height: 24px;
@@ -148,6 +155,7 @@
       background: var(--input-border);
       padding: 2px 6px; border-radius: 4px;
       font-size: 13px; color: var(--text);
+      word-break: break-word;
     }
     .buttons { display: flex; gap: 12px; margin: 15px 0 10px; }
     button {
@@ -177,6 +185,7 @@
       text-align: center; white-space: nowrap;
       transition: background 0.3s, box-shadow 0.3s;
       scrollbar-width: none; -ms-overflow-style: none;
+      width: 100%;            /* 全宽 */
     }
     .preview-box::-webkit-scrollbar { display: none; }
     .formula-wrapper { display: inline-block; text-align: left; white-space: nowrap; }
@@ -221,6 +230,66 @@
       text-align: center; font-size: 13px;
       color: var(--text-secondary); margin-top: 5px;
     }
+
+    /* ===== 桌面端全宽优化 ===== */
+    @media (min-width: 1024px) {
+      body {
+        padding: 24px 32px;
+      }
+      .container {
+        max-width: 100%;
+        width: 100%;
+      }
+      h1 { font-size: 2rem; }
+      textarea {
+        height: 140px;
+        font-size: 18px;
+      }
+      .preview-box {
+        padding: 35px 30px;
+      }
+      .formula-wrapper .katex {
+        font-size: 1.8rem;   /* 大屏公式更大 */
+      }
+      .buttons button {
+        padding: 16px 0;
+        font-size: 18px;
+      }
+      .quality-control label {
+        font-size: 16px;
+      }
+      #qualityLabel {
+        font-size: 15px;
+      }
+      .example {
+        font-size: 15px;
+      }
+    }
+
+    /* 超宽屏幕下限制内容最大宽度，防止过宽影响阅读（但题目要求扩宽整个界面，故保留宽屏，但让内部元素合理拉伸） */
+    @media (min-width: 1600px) {
+      .container {
+        max-width: 1600px;    /* 超宽屏时避免无限拉伸，但仍在1600px内全宽 */
+        margin: 0 auto;
+      }
+      .preview-box {
+        padding: 40px 40px;
+      }
+    }
+
+    /* 小屏手机优化 */
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      h1 { font-size: 1.5rem; }
+      .buttons { gap: 8px; }
+      button { font-size: 14px; padding: 12px 0; }
+      .preview-box { padding: 20px 15px; }
+      .formula-wrapper .katex { font-size: 1.3rem; }
+      .quality-control { gap: 8px; flex-wrap: wrap; }
+      .quality-slider { min-width: 120px; }
+    }
+
+    /* 修复移动端点击输入框放大问题（已在viewport中允许缩放，不做额外处理） */
   </style>
 </head>
 <body>
@@ -462,9 +531,7 @@
     // ========== 清空按钮 ==========
     clearBtn.addEventListener('click', () => {
       latexInput.value = '';
-      // 聚焦到输入框，方便继续输入
       latexInput.focus();
-      // 触发预览更新（变为空状态）
       updatePreview();
     });
 
@@ -541,6 +608,9 @@
 
     // 初始化预览状态（输入框为空）
     updatePreview();
+
+    // 当窗口尺寸变化时，对桌面端大屏可稍微调整预览字体（非必须，但保持响应式）
+    // 已有 CSS 媒体查询控制，无需额外JS
   </script>
 </body>
 </html>
